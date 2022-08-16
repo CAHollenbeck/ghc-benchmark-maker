@@ -80,7 +80,10 @@ def timeThem(compiler,
 
   # Location of the timing CSV file
   time_dir = join(expdir, "RANDOM_TIMES")
-  
+ 
+  if not exists(expdir):
+      mkdir(expdir)
+
   if not exists(time_dir):
       mkdir(time_dir)
       
