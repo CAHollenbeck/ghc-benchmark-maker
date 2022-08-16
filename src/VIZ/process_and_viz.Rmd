@@ -207,7 +207,6 @@ allnpminsfile <- getPath(tabledir, "allNPmins.txt")
 allrpminsfile <- getPath(tabledir, "allRPmins.txt")
 allminsfile <- getPath(tabledir, "allMins.txt")
 reducedminsfile <- getPath(tabledir, "reducedmins.txt")
-#frequentitemsfile <- getPath(tabledir, "frequentitems.csv")
 
 redosdir <- getPath(datadir, "REDOS")
 redosPfile <- getPath(redosdir, "nov9_withPragmas.csv")
