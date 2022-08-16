@@ -159,7 +159,6 @@ def time_projects(projdir, compiler, projlist=None):
         projectpath = os.path.join(projdir, projname)
         loggit(cmd_time)
         # Ignoring freeze files just to see if 8p10 times things
-        #if os.path.exists(os.path.join(projectpath, "cabal.project.freeze")):
         print("Timing " + projname + " ...")
         runs = 0
         fail = False
