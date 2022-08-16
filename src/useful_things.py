@@ -13,6 +13,9 @@ timedir = os.path.join(datadir, "TIMES")
 tempdir = os.path.join(datadir, "TEMP")
 curled_project_file = os.path.join(logdir, "projects_attempted_curl.txt")
 
+if not os.path.exists(expdir):
+    os.mkdir(expdir)
+
 if not os.path.exists(logdir):
     os.mkdir(logdir)
 
