@@ -13,6 +13,9 @@ timedir = os.path.join(datadir, "TIMES")
 tempdir = os.path.join(datadir, "TEMP")
 curled_project_file = os.path.join(logdir, "projects_attempted_curl.txt")
 
+if not os.path.exists(logdir):
+    os.mkdir(logdir)
+
 # Write the thing to the log file for record keeping
 def loggit(m):
     with open(logfile, 'a+') as f:
