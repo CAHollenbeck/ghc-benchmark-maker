@@ -7,6 +7,8 @@ Then make again.
 
 More precise steps:
 
+In a new folder for the desired location of the GHC:
+
     $ git clone --recurse-submodules git@gitlab.haskell.org:ghc/ghc.git
     $ cd ghc
     $ git submodule update init
