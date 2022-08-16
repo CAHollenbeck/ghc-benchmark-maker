@@ -1,0 +1,156 @@
+Failed command: tar -xvf /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/ORIGINAL_PROJECTS/whatevr-0.2.4.tar.gz --directory /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/ORIGINAL_PROJECTS
+with error code: 2
+
+FAIL BUILD on abstract-deque-0.3
+Warning: The package list for 'hackage.haskell.org' is 125 days old.
+Run 'cabal update' to get the latest list of available packages.
+
+Data/Concurrent/Deque/Reference.hs:50:1: warning: [-Wtabs]
+    Tab character found here.
+    Please use spaces instead.
+   |
+50 |           return $! DQ 0 r
+   | ^^^^^^^^
+
+FAIL BUILD on abstract-par-0.3.3
+Warning: The package list for 'hackage.haskell.org' is 125 days old.
+Run 'cabal update' to get the latest list of available packages.
+
+Control/Monad/Par/Class.hs:122:1: warning: [-Wtabs]
+    Tab character found here, and in three further locations.
+    Please use spaces instead.
+    |
+122 |                   put_ v a
+    | ^^^^^^^^
+
+FAIL BUILD on AC-Angle-1.0
+Warning: The package list for 'hackage.haskell.org' is 125 days old.
+Run 'cabal update' to get the latest list of available packages.
+
+FAIL BUILD on reinterpret-cast-0.1.0
+Warning: The package list for 'hackage.haskell.org' is 125 days old.
+Run 'cabal update' to get the latest list of available packages.
+
+vendor/Control/Concurrent/Async.hs:150:1: warning: [-Wunused-imports]
+    The import of ‘Data.Semigroup’ is redundant
+      except perhaps to import instances from ‘Data.Semigroup’
+    To import instances alone, use: import Data.Semigroup()
+    |
+150 | import Data.Semigroup (Semigroup((<>)))
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Warning: The package has an extraneous version range for a dependency on an
+internal library: reinterpret-cast -any && ==0.1.0, reinterpret-cast -any &&
+==0.1.0. This version range includes the current package but isn't needed as
+the current package's library will always be used.
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-deque-0.3/src/ -type f -print0 | xargs -0 sed -i '' 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-par-0.3.3/src/ -type f -print0 | xargs -0 sed -i '' 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/AC-Angle-1.0/src/ -type f -print0 | xargs -0 sed -i '' 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/reinterpret-cast-0.1.0/src/ -type f -print0 | xargs -0 sed -i '' 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-deque-0.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-par-0.3.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/AC-Angle-1.0/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-deque-0.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-par-0.3.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/AC-Angle-1.0/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-deque-0.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-par-0.3.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/AC-Angle-1.0/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-deque-0.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-par-0.3.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/AC-Angle-1.0/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-deque-0.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-par-0.3.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/AC-Angle-1.0/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-deque-0.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-par-0.3.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/AC-Angle-1.0/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-deque-0.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-par-0.3.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/AC-Angle-1.0/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-deque-0.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-par-0.3.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/AC-Angle-1.0/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-deque-0.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-par-0.3.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/AC-Angle-1.0/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-deque-0.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-par-0.3.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/AC-Angle-1.0/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-deque-0.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/abstract-par-0.3.3/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+
+Failed command: find /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/AC-Angle-1.0/src/ -type f -print0 | xargs -0 sed -i 's/{-# INLINE /{-# REMOVEINLINE /g'
+with error code: 123
+

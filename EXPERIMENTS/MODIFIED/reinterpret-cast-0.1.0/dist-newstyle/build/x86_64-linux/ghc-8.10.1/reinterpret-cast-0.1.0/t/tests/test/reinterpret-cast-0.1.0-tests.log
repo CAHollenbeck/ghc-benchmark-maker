@@ -1,0 +1,15 @@
+Test suite tests: RUNNING...
+DETERMINISTIC
+
+Current
+  wordToFloat
+exhaustive testing (~ 2 minutes per test)
+  Word32 / float
+Comparing implementations
+  [0..1000000] Word32 / float
+  [0..1000000] Word64 / double
+
+Finished in 60.4222 seconds
+4 examples, 0 failures
+Test suite tests: PASS
+Test suite logged to: /home/chollenbeck/Research/ghc-benchmark-maker/EXPERIMENTS/MODIFIED/reinterpret-cast-0.1.0/dist-newstyle/build/x86_64-linux/ghc-8.10.1/reinterpret-cast-0.1.0/t/tests/test/reinterpret-cast-0.1.0-tests.log

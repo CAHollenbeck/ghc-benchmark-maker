@@ -1,0 +1,108 @@
+---
+title: "Summary_viz.Rmd"
+output: html_document
+---
+
+```{r, setup}
+wd <- getwd()
+# Viz functions
+source(file.path(wd, "Viz_functionality.R", fsep=.Platform$file.sep), local=knitr::knit_global())
+library(ggplot2)
+library(data.table)
+library(e1071)
+library(lsa) # Calculate cos differences between vectors
+
+```
+
+```{r}
+vp <- getPath(datadir, "VECTOR_TABLES")
+sums1 <- getPath(vp, "summaries1.csv")
+sums2 <- getPath(vp, "summaries2.csv")
+avgs1 <- getPath(vp, "averages1.csv")
+avgs2 <- getPath(vp, "averages2.csv")
+default_avgs1 <- getPath(vp, "defaultAvgs1.csv")
+default_avgs2 <- getPath(vp, "defaultAvgs2.csv")
+
+a1 <- read.csv(file=avgs1, header=TRUE)
+a2 <- read.csv(file=avgs2, header=TRUE)
+
+s1 <- read.csv(file=sums1, header=TRUE)
+s2 <- read.csv(file=sums2, header=TRUE)
+
+da1 <- read.csv(file=default_avgs1, header=TRUE)
+da2 <- read.csv(file=default_avgs2, header=TRUE)
+```
+
+```{r}
+all_avg <- rbind(a1, a2)
+all_sum <- rbind(s1, s2)
+all_def_avg <- rbind(da1, da2)
+```
+
+```{r}
+# Get default vs best, YES to inline
+# Percent change for each feature
+# OVERALL and PER PROJECT
+
+# OVERALL
+all_avgYES_D <- all_avg[all_avg$Inlined==1 & all_avg$Modified==0,]
+all_avgYES_M <- all_avg[all_avg$Inlined==1 & all_avg$Modified==1,]
+
+all_avgYES_D_ID <- all_avgYES_D
+
+all_avgNO <- all_avg[all_avg$Inlined==0,]
+# IFJI occurs in a tiny, tiny number of cases.
+
+all_avgYES_D$ID <- NULL
+all_avgYES_M$ID <- NULL
+
+allYDmeans <- colMeans(all_avgYES_D)
+allYMmeans <- colMeans(all_avgYES_M)
+
+avgPercDiffs <- ifelse(allYDmeans==0, 0, round((allYMmeans/allYDmeans - 1)*100,4))
+
+avgSummary <- data.frame(FTRS=names(all_avgYES_D), PERC_DIFF=avgPercDiffs)
+
+# Drop rows where percent difference means nothing
+avgSummary <- avgSummary[!avgSummary$FTRS=="TALLY",]
+avgSummary <- avgSummary[!avgSummary$FTRS=="Inlined",]
+avgSummary <- avgSummary[!avgSummary$FTRS=="Modified",]
+avgSummary <- avgSummary[!avgSummary$FTRS=="IFCo",] # Always 0, removed from GA
+avgSummary <- avgSummary[!avgSummary$FTRS=="IFLBR",] # Always 0, removed from GA
+avgSummary <- avgSummary[!avgSummary$FTRS=="IFNR",] # Always 0, removed from GA
+avgSummary <- avgSummary[!avgSummary$FTRS=="IFT",] # Always 0, removed from GA
+avgSummary <- avgSummary[!avgSummary$FTRS=="IFT.1",] # Always 0, removed from GA
+avgSummary <- avgSummary[!avgSummary$FTRS=="CTI",] # Always 0, removed from GA
+avgSummary <- avgSummary[!avgSummary$FTRS=="ACTIV",] # Always 1, removed from GA
+avgSummary <- avgSummary[!avgSummary$FTRS=="IFTick",] # Always 0, removed from GA
+```
+
+```{r fig.width=6.2, fig.height=3}
+# Make labels float above positive values and below negative values.
+avgSummary$TEXTPLACE <- ifelse(avgSummary$PERC_DIFF > 0, avgSummary$PERC_DIFF, avgSummary$PERC_DIFF-10)
+
+# Keep all 0's above the intercept.
+avgSummary$TEXTPLACE <- ifelse(round(avgSummary$PERC_DIFF,0)==0, 0, avgSummary$TEXTPLACE)
+sumPos <- data.frame(x=(seq(1, nrow(avgSummary))),
+                            y=avgSummary$TEXTPLACE)
+
+ggplot(avgSummary, aes(x=avgSummary$FTRS, y=avgSummary$PERC_DIFF)) +
+  geom_bar(stat="identity") +
+  theme(axis.text.x=element_text(angle=90)) +
+  ylim(min(avgSummary$TEXTPLACE-3), max(avgSummary$TEXTPLACE+8)) +
+  xlab("Features") +
+  ylab("Difference From Default") +
+  ggtitle("Prevalence of Core IR features in aggregated best-case configurations\nversus default GHC") +
+  theme(
+    plot.title=element_text(size=12.5),
+    axis.title.y=element_text(size=12),
+    text=element_text(size=16)
+    ) +
+  geom_text(data=sumPos,
+            size=3,
+            aes(y=sumPos$y, label=paste(round(avgSummary$PERC_DIFF,0),"%",sep="")),
+            vjust=-0.1, position=position_dodge(width=.9))
+```
+```{r}
+ggsave(getPath(imagedir, "feature_change.png"), width=6.2, height=3,  plot=last_plot())
+```

@@ -1,0 +1,3 @@
+[submodule "MODIFIED_DEPENDENCIES/quickcheck_modified"]
+	path = MODIFIED_DEPENDENCIES/quickcheck_modified
+	url = git@github.com:CAHollenbeck/quickcheck_modified.git

@@ -1,0 +1,1319 @@
+---
+title: "Figures and numbers for the paper Investigating Magic Numbers: Improving the Inlining Heuristic in the Glasgow Haskell Compiler"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(purrr)
+library(reshape2)
+library(car)
+library(ggpubr)
+library(arules)
+library(RColorBrewer)
+library(readr)
+```
+
+```{r}
+wd <- getwd()
+# Viz functions
+source(file.path(wd, "Viz_functionality.R", fsep=.Platform$file.sep), local=knitr::knit_global())
+```
+
+
+```{r}
+nonempty <- "nonempty-containers-0.3.3.0"
+loop <- "loop-0.3.0"
+poly <- "poly-0.3.3.0"
+setcover <- "set-cover-0.1"
+
+project_names <- c(
+  hwrankselectSTR,
+  loopSTR,
+  listlikeSTR,
+  metricsSTR,
+  midiSTR,
+  monoidSTR,
+  nonemptySTR,
+  polySTR,
+  reinterpretSTR,
+  setcoverSTR
+)
+```
+
+```{r}
+# process :: DataFrame -> DataFrame
+#
+# Runs the unprocessed DF through cleaning and calculation of
+# average times.
+processRedo <- function(df) {
+  tmp <- df %>% clean() #%>%
+  return(tmp)
+}
+
+# getEverything :: [[String, String]] -> DataFrame
+#
+# Take in a list of string tuples of (filename, date),
+# retrieve the rows from the CSVs in the files, construct
+# the data frames with process(), and rbind them all into
+# a dataframe.
+#
+# This function processes each file PER DATE.
+getEverythingRedo <- function(filelist, cl, cn) {
+  df <- data.frame(matrix(ncol = length(n), nrow = 0))
+  
+  for (f in filelist) {
+    fname <- f[[1]]
+    tmp <- read.csv(fname,
+                    header=FALSE,
+                    colClasses=cl,
+                    col.names=cn)
+    tmp$DATE <- f[[2]] # Add the date to the data set as a column
+    
+    tmp <- tmp %>% processRedo() # process this date's data set
+    df <- rbind(df, tmp) # rbind it into accumulated df
+  }
+  
+  return(df)
+}
+#
+```
+
+```{r}
+getRedoDF <- function(filelist) {
+  redoDF <- getEverythingRedo(filelist, classes3, col_names3)
+  redoDF$CONFIG <- 0
+  
+  # DF with unique config num for each set of flags
+  redoDF_ <-
+    redoDF %>% distinct(FI, AA, NTA, DAC, RAC, RC, AC, FFD, FDD, CB, CA, BA, .keep_all = TRUE) %>% mutate(CONFIG =
+                                                                                                            row_number())
+  
+  # Assign a new unique config number to each config in original redo data frame.
+  for (i in 1:nrow(redoDF_)) {
+    rRow <- redoDF_[i, ]
+    FI_ <- rRow$FI
+    AA_ <- rRow$AA
+    NTA_ <- rRow$NTA
+    DAC_ <- rRow$DAC
+    RAC_ <- rRow$RAC
+    RC_ <- rRow$RC
+    AC_ <- rRow$AC
+    FFD_ <- rRow$FFD
+    FDD_ <- rRow$FDD
+    CB_ <- rRow$CB
+    CA_ <- rRow$CA
+    BA_ <- rRow$BA
+    redoDF[redoDF$FI == FI_ &
+             redoDF$AA == AA_ &
+             redoDF$NTA == NTA_ & redoDF$DAC == DAC_ & redoDF$RAC == RAC_ &
+             redoDF$RC == RC_ &
+             redoDF$AC == AC_ &
+             redoDF$FFD == FFD_ & redoDF$FDD == FDD_ & redoDF$CB == CB_ &
+             redoDF$CA == CA_ & redoDF$BA == BA_, ]$CONFIG <-
+      rRow$CONFIG
+  }
+  
+  
+  # Compute project average per CONFIG
+  redoDF <- redoDF %>%  getProjConfigAvg() %>% getDistinctConfigAvg()
+  return(redoDF)
+}
+#
+```
+
+
+```{r}
+# Replace the times in the everything df for replay projects
+# Assign a new unique config number to each config in original redo data frame.
+getRedos <- function(rdf, newdf) {
+  for (i in 1:nrow(rdf)) {
+    rRow <- rdf[i, ]
+    FI_ <- rRow$FI
+    AA_ <- rRow$AA
+    NTA_ <- rRow$NTA
+    DAC_ <- rRow$DAC
+    RAC_ <- rRow$RAC
+    RC_ <- rRow$RC
+    AC_ <- rRow$AC
+    FFD_ <- as.numeric(rRow$FFD)
+    FDD_ <- rRow$FDD
+    CB_ <- as.numeric(rRow$CB)
+    CA_ <- rRow$CA
+    BA_ <- rRow$BA
+    P_ <- as.character(rRow$PROJECT)
+    newdf[as.character(newdf$PROJECT) == P_ &
+            newdf$FI == FI_ &
+            newdf$AA == AA_ &
+            newdf$NTA == NTA_ & newdf$DAC == DAC_ & newdf$RAC == RAC_ &
+            newdf$RC == RC_ &
+            newdf$AC == AC_ &
+            as.numeric(newdf$FFD) == FFD_ &
+            newdf$FDD == FDD_ & as.numeric(newdf$CB) == CB_ &
+            newdf$CA == CA_ &
+            newdf$BA == BA_, ]$PROJ_CONFIG_AVG <- rRow$PROJ_CONFIG_AVG
+     newdf[as.character(newdf$PROJECT) == P_ &
+            newdf$FI == FI_ &
+            newdf$AA == AA_ &
+            newdf$NTA == NTA_ & newdf$DAC == DAC_ & newdf$RAC == RAC_ &
+            newdf$RC == RC_ &
+            newdf$AC == AC_ &
+            as.numeric(newdf$FFD) == FFD_ &
+            newdf$FDD == FDD_ & as.numeric(newdf$CB) == CB_ &
+            newdf$CA == CA_ &
+            newdf$BA == BA_, ]$STATUS <- "MODIFIED"
+  }
+  return(newdf)
+}
+
+# Remove configurations where we don't have timings for any given project.
+# We only want complete configurations.
+dfOnlyN <- function(df, n){
+  df_ <- df #df[FALSE,] # Copy the shape of the DF, but empty its rows
+  df_$TYPE_TIME <- NULL
+  df_$RUN <- NULL
+  df_$temp1 <- NULL
+  df_$temp2 <- NULL
+  df_$temp3 <- NULL
+  df_$temp4 <- NULL
+  df_$temp5 <- NULL
+  df_$temp6 <- NULL
+  df_$temp7 <- NULL
+  df_$temp8 <- NULL
+  df_$temp9 <- NULL
+  df_$temp10 <- NULL
+  df_$NPROJ <- NULL
+  df_$DEFAULT <- -1
+  for (p in project_names) {
+    df_[df_$PROJECT==p,]$DEFAULT <- default_mins[default_mins$PROJECT==p,]$TIME # TODO can be PROJ_CONFIG_AVG for UST w/ Viz2
+  }
+  df_$RSpeedup <- getRSpeedup(df_$DEFAULT, df_$PROJ_CONFIG_AVG)
+  df_$RSPEEDPERC <- (df_$RSpeedup-1)*100
+  df_ <- df_ %>% getWholeConfigRSpeedup()
+  df_$CONFIG_GM_SPEEDUP <- (df_$CONFIG_RSPEEDUP-1)*100 # % of GM of RSpeedup
+  return(df_)
+}
+#
+```
+
+```{r}
+tabledir <- getPath(wd, "TABLES")
+alldpfile <- getPath(tabledir, "allDP.txt")
+allrpfile <- getPath(tabledir, "allRP.txt")
+allnpfile <- getPath(tabledir, "allNP.txt")
+allconfigsfile <- getPath(tabledir, "allConfigs.txt")
+defaultminsfile <- getPath(tabledir, "default_mins.txt")
+alldpminsfile <- getPath(tabledir, "allDPmins.txt")
+allnpminsfile <- getPath(tabledir, "allNPmins.txt")
+allrpminsfile <- getPath(tabledir, "allRPmins.txt")
+allminsfile <- getPath(tabledir, "allMins.txt")
+reducedminsfile <- getPath(tabledir, "reducedmins.txt")
+#frequentitemsfile <- getPath(tabledir, "frequentitems.csv")
+
+redosdir <- getPath(datadir, "REDOS")
+redosPfile <- getPath(redosdir, "nov9_withPragmas.csv")
+redosP <- list(list(redosPfile, "nov9"))
+redosNPfile <- getPath(redosdir, "nov11_noPragmas.csv")
+redosNP <- list(list(redosNPfile, "nov11"))
+#
+```
+
+```{r}
+# Check if directories exist and create if not
+if (!file.exists(tabledir)) {
+  dir.create(tabledir)
+}
+if (!file.exists(imagedir)) {
+  dir.create(imagedir)
+}
+#
+```
+
+```{r}
+allDP <- NULL
+allRP <- NULL
+allNP <- NULL
+
+if(!file.exists(alldpfile) ||
+   !file.exists(allrpfile) ||
+   !file.exists(allnpfile) ||
+   !file.exists(allconfigsfile) ||
+   !file.exists(defaultminsfile) ||
+   !file.exists(alldpminsfile) ||
+   !file.exists(allnpminsfile) ||
+   !file.exists(allrpminsfile) ||
+   !file.exists(allminsfile) ||
+   !file.exists(reducedminsfile)
+  ) { 
+  print("Example tables not found.")
+  redoDFP <- getRedoDF(redosP)
+  redoDFNP <- getRedoDF(redosNP)
+  
+  r1path <- getPath(datadir, "ROUND1")
+  r2path <- getPath(datadir, "ROUND2")
+  Dpath  <- getPath(datadir, "DEFAULTS") 
+  
+  # Process and bind together all of the collected data.
+  file_listDP <- list(
+    # DEFAULTS WITH PRAGMAS
+    list(getPath(Dpath, "may9_DP.csv"), "may9_DP"),
+    list(getPath(Dpath, "may10_DP.csv"), "may10_DP"))
+  
+  # For rebuilding the tables from CSV files
+  RPpath <- getPath(r1path, "RP")
+  # WITH PRAGMAS
+  file_listRP <- dfLists(RPpath, c("may10", "may11", "may12", "may12_2", "may13", "may20", "may21"))
+    
+  NPpath <- getPath(r1path, "NP")
+  # No pragmas
+  file_listRNP <- dfLists(NPpath, c("may14", "may15", "may16", "may17", "may18", "may19", "may20_NP"))
+  
+  RP2path <- getPath(r2path, "RP")
+  # Round 2 batches of randomizatons
+  pragmas_round2 <- dfLists(RP2path, c("nov8", "nov12", "nov16", "nov19", "nov22", "nov26", "nov30"))
+  
+  NP2path <- getPath(r2path, "NP")
+  nopragmas_round2 <- dfLists(NP2path, c("nov6", "nov13", "nov14", "nov17", "nov21", "nov24", "nov28", "dec2"))
+
+  # These files are CSVs for timings of the default/unhacked GHC
+  default_file_list <- list(
+    list(getPath(Dpath, "nov7_DNP.csv"), "nov7_DNP")
+  )
+  
+  ###############################################
+  #
+  # Read the files and make the data frames for
+  # the randomized runs.
+  #
+  ###############################################
+  
+  batchp <- "Search with pragmas"
+  batchnp <- "Search no pragmas"
+  batchd <- "Default with pragmas"
+  
+  # A data frame to hold all the randomized threshold timings
+  # TODO : Remove this when there is enough data.
+  # This batch is the data collected in 2020
+  allDP <- getEverything(file_listDP, classes3, col_names3)
+  allRP <- getEverything(file_listRP, classes3, col_names3)
+  allNP <- getEverything(file_listRNP, classes3, col_names3)
+  
+  # Round 2
+  r2P <- getEverything(pragmas_round2, classes3, col_names3)
+  r2NP <- getEverything(nopragmas_round2, classes3, col_names3)
+  
+  r2P$STATUS <- "ROUND2"
+  r2P$BATCH <- batchp
+  r2NP$STATUS <- "ROUND2"
+  r2NP$BATCH <- batchnp
+  
+  r2NP$CONFIG <- as.numeric(r2NP$CONFIG)
+  r2NP$CONFIG <- as.factor(r2NP$CONFIG)
+  
+  allRP$STATUS <- "ORIGINAL"
+  allRP <- getRedos(redoDFP, allRP)
+  allRP$BATCH <- batchp
+  
+  allNP$STATUS <- "ORIGINAL"
+  allNP <- getRedos(redoDFNP, allNP)
+  allNP$BATCH <- batchnp
+  
+  allDP$STATUS <- "ORIGINAL"
+  allDP$BATCH <- batchd
+  
+  ###############################################
+  #
+  # Read the files and make the data frames for
+  # the default runs.
+  #
+  ###############################################
+  
+  # A data frame to hold all the default timings of unhacked GHC
+  all_defaults <- getEverything(default_file_list, classes3, col_names3) # batch of defaults before Nov 19th, 2020
+  
+  # Get every time recorded for all of the default runs.
+  all_default_runs <- default_file_list %>% getDFfromCSV(classes3, col_names3) %>% clean()
+  
+  # List of all projects in study.
+  # This variable was defined before, but this one stays so that nothing will get accidentally messed up.
+  project_names <- unique(as.character(all_defaults$PROJECT))
+  
+  # DF of min timings for the defaults
+  default_mins <- getMinDF(all_defaults, "PROJ_CONFIG_AVG") 
+  
+  ##############################################
+  #
+  # Add the fastest default timings to the 
+  # everything data frame to make calculations
+  # easier.
+  #
+  ##############################################
+  allRP <- rbind(allRP, r2P)
+  allNP <- rbind(allNP, r2NP)
+  
+  num_projects <- 10
+  
+  allDP <- dfOnlyN(allDP, num_projects)
+  allNP <- dfOnlyN(allNP, num_projects)
+  allRP <- dfOnlyN(allRP, num_projects)
+  
+  # Initialize the unique config column
+  allDP$UNIQUE_CONFIG <- -1
+  allRP$UNIQUE_CONFIG <- -1
+  allNP <- allNP %>% group_by(DATE, CONFIG) %>% mutate(UNIQUE_CONFIG=group_indices())
+  allRP <- allRP %>% group_by(DATE, CONFIG) %>% mutate(UNIQUE_CONFIG=group_indices())
+  
+  # UNIQUE_CONFIGS are not going to be unique between NP and RP. They're only unique
+  # in their respective batch dataframes.
+  allConfigs <- rbind(allDP, allNP, allRP)
+  
+  minBy <- "PROJ_CONFIG_AVG"
+  allDPmins <- getMinDF(allDP, minBy)
+  allNPmins <- getMinDF(allNP, minBy)
+  allRPmins <- getMinDF(allRP, minBy)
+  
+  allMins <- rbind(allNPmins, allRPmins)
+  
+  # Get unique config #s for each configuration by value
+  allMins <- allMins %>% group_by(FI, AA, NTA, DAC, RAC, RC, AC, FFD, FDD, CB, CA, BA) %>% mutate(UNIQ_CONFIG=group_indices())
+  
+  allDPmins$UNIQ_CONFIG <- -1
+  allMins <- rbind(allMins, allDPmins)
+  reducedMins <- getMinDF(allMins, minBy)
+
+  
+  write.table(allDP, file=alldpfile, quote=F, sep=",")
+  write.table(allRP, file=allrpfile, quote=F, sep=",")
+  write.table(allNP, file=allnpfile, quote=F, sep=",")
+  write.table(allConfigs, file=allconfigsfile, quote=F, sep=",")
+  write.table(default_mins, file=defaultminsfile, quote=F, sep=",")
+  write.table(allDPmins, file=alldpminsfile, quote=F, sep=",")
+  write.table(allNPmins, file=allnpminsfile, quote=F, sep=",")
+  write.table(allRPmins, file=allrpminsfile, quote=F, sep=",")
+  write.table(allMins, file=allminsfile, quote=F, sep=",")
+  write.table(reducedMins, file=reducedminsfile, quote=F, sep=",")
+} else {
+  print("Example table files found. Loading example tables.")
+  allDP <- read.table(alldpfile, sep=",")
+  allRP <- read.table(allrpfile, sep=",")
+  allNP <- read.table(allnpfile, sep=",")
+  default_mins <- read.table(defaultminsfile, sep=",")
+  allConfigs <- read.table(allconfigsfile, sep=",")
+  allDPmins <- read.table(alldpminsfile, sep=",")
+  allNPmins <- read.table(allnpminsfile, sep=",")
+  allRPmins <- read.table(allrpminsfile, sep=",")
+  allMins <- read.table(allminsfile, sep=",")
+  reducedMins <- read.table(reducedminsfile, sep=",")
+}
+
+project_names <- unique(allNP$PROJECT) # Redundant again, but staying to keep the peace.
+#
+```
+
+```{r}
+oldRP <- c("may10", "may11", "may12", "may12_2", "may13")
+oldRPnew <- c("may20", "may21")
+
+oldNP <- c("may14", "may15", "may16", "may17", "may18")
+oldNPnew <- c("may19", "may20_NP")
+
+NoldRP <- allRP[allRP$DATE %in% oldRP,] %>% group_by(DATE, CONFIG) 
+print((nrow(NoldRP) / 10)) # 10 projects, so divide by 10 to get unique configs b/c group_by not working
+
+NoldRPnew <- allRP[allRP$DATE %in% oldRPnew,] %>% group_by(DATE, CONFIG)
+print(nrow(NoldRPnew) / 10)
+```
+NP: 50 runs on the original normal distn for the HS paper. 20 additional runs on normal after submission.
+P: Same.
+
+
+```{r}
+plot_separate(allDP, "PROJ_CONFIG_AVG", "PROJECT")
+```
+Simply plotting the run times of projects, defaults.
+
+```{r fig.width=13, fig.height=6}
+plot_separate(allRP, "PROJ_CONFIG_AVG", "PROJECT")
+```
+Plotting the run times of projects, with pragmas.
+
+
+```{r fig.width=13, fig.height=6}
+plot_separate(allNP, "PROJ_CONFIG_AVG", "PROJECT", my_ylim=110)
+```
+Plotting run times of projects, no pragmas.
+
+
+```{r}
+perc1 <- allNP[FALSE,]
+
+pnmod <- c("hw-rankselect-0.13.3.1", "ListLike-4.6.3", "loop-0.3.0", "metrics-0.4.1.1", "midi-0.2.2.2", "monoid-subclasses-1.0.1", "nonempty-containers-0.3.3.0", "poly-0.3.3.0", "reinterpret-cast-0.1.0", "set-cover-0.1")
+
+for (p in project_names) {
+  pbatch <- allNP[allNP$PROJECT==p & allNP$RSpeedup > 1.03,]
+  maxp <- max(pbatch$RSpeedup)
+  lb <- maxp - .01 # Ok if 1% less than max speedup
+  pbatch <- pbatch[pbatch$RSpeedup >= lb,]
+  perc1 <- rbind(perc1, pbatch)
+  print(paste(p, "---",nrow(pbatch)))
+}
+
+```
+
+```{r}
+perc1RP <- allRP[FALSE,]
+
+pnmod <- c("hw-rankselect-0.13.3.1", "ListLike-4.6.3", "loop-0.3.0", "metrics-0.4.1.1", "midi-0.2.2.2", "monoid-subclasses-1.0.1", "nonempty-containers-0.3.3.0", "poly-0.3.3.0", "reinterpret-cast-0.1.0", "set-cover-0.1")
+
+for (p in pnmod) {
+  pbatch <- allRP[allRP$PROJECT==p & allRP$RSpeedup > 1.03,]
+  maxp <- max(pbatch$RSpeedup)
+  lb <- maxp - .01
+  pbatch <- pbatch[pbatch$RSpeedup >= lb,]
+  perc1RP <- rbind(perc1RP, pbatch)
+  print(paste(p, "---",nrow(pbatch)))
+}
+```
+
+```{r}
+# Evolution graph
+# Assign unique configs to NP
+gm_evolveRP <- c()
+gm_maxRP <- -Inf
+for (uc in 1:max(allRP$UNIQUE_CONFIG)) {
+  batch <- allRP[allRP$UNIQUE_CONFIG==uc,]
+  maxnow <- unique(batch$CONFIG_RSPEEDUP)[1]
+  if (maxnow > gm_maxRP) {
+    gm_maxRP <- maxnow
+  } 
+  gm_evolveRP <- c(gm_evolveRP, gm_maxRP)
+
+}
+```
+
+
+```{r}
+# Evolution graph
+# Assign unique configs to NP
+gm_evolve <- c()
+gm_max <- -Inf
+for (uc in 1:max(allNP$UNIQUE_CONFIG)) {
+  batch <- allNP[allNP$UNIQUE_CONFIG==uc,]
+  maxnow <- unique(batch$CONFIG_RSPEEDUP)[1]
+  if (maxnow > gm_max) {
+    gm_max <- maxnow
+  } 
+  gm_evolve <- c(gm_evolve, gm_max)
+}
+```
+
+
+```{r}
+configs_RNP <- allNP %>% distinct(CONFIG, DATE)
+nNrpc <- nrow(configs_RNP)
+nNrpc
+```
+Number of configurations for randomizations with NO pragmas
+320
+
+```{r}
+library(data.table)
+allRPdt <- setDT(allRP)
+configs_RP <- allRPdt %>% unique(by=c("CONFIG", "DATE"))
+nrpc <- nrow(configs_RP)
+nrpc
+```
+Number of configurations for randomizations with pragmas
+320
+
+```{r}
+total_rpc <- nNrpc + nrpc
+total_rpc
+```
+640
+
+
+```{r}
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+cbbPalette2 <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+```
+
+
+# Performance results as ratio instead of speedup
+```{r, fig.width=16.5, fig.height=3.4}
+allMins1 <- allMins[allMins$PROJECT %in% c(hwrankselectSTR, loopSTR, listlikeSTR, metricsSTR, midiSTR),]
+newbars1 <- allMins1$RSpeedup - 1
+newbarsPOS <- ifelse(newbars1 < 0, 0, newbars1)
+panetitle <- "Execution Time Speedup"
+allMins1$NAME <- getShortNameVec(allMins1$PROJECT)
+allMins1$NAME <- as.factor(allMins1$NAME)
+```
+
+```{r, fig.width=16.5, fig.height=3.4}
+# Figure 5b (right)
+
+toppaneR1 <- ggplot(mapping=aes(x=allMins1$NAME, y=newbars1, fill=allMins1$BATCH)) +
+  geom_bar(data=data.frame(x=1:nrow(allMins1),
+                           y=(newbars1), fill=(allMins1$BATCH)),
+            stat='identity', position=position_dodge()) +
+  geom_text(data=data.frame(x=(seq(1, nrow(allMins1))), y=newbarsPOS),
+            aes(label=paste(round(allMins1$RSPEEDPERC,0),"%",sep=""), y=newbarsPOS), vjust=-0.2, position=position_dodge(width=.9), size=10) +
+            theme_classic() + 
+            ylab(panetitle) +
+            theme(axis.title.x=element_blank(),
+                  axis.title.y=element_blank(),
+                  legend.text=element_text(size=16),
+                  title=element_text(size=14),
+                  legend.title=element_text(size=14),
+                  legend.position="none",
+                  text=element_text(size=36)) +
+            guides(fill=guide_legend(title="")) +
+            scale_fill_manual(values=cbbPalette) +
+            scale_y_continuous(limits=c(-0.1, 0.5), breaks=c(0,.1,.2,.3,.4), labels=c("1.0", "1.1", "1.2", "1.3","1.4+"))
+toppaneR1file <- getPath(imagedir, "toppaneR1.png")
+ggsave(toppaneR1file, width=16.5, height=4)
+toppaneR1
+```
+
+
+```{r}
+allMins2 <- allMins[!(allMins$PROJECT %in% c(hwrankselectSTR, loopSTR, listlikeSTR, metricsSTR, midiSTR)),]
+
+allMins2$NAME <- getShortNameVec(allMins2$PROJECT)
+allMins2$NAME <- as.factor(allMins2$NAME)
+
+newbars2 <- allMins2$RSpeedup - 1
+maxR1 = 0.4
+newbars2 <- ifelse(newbars2 > maxR1, maxR1, newbars2)
+newbarsPOS <- ifelse(newbars2 < 0, 0, newbars2)
+```
+
+```{r, fig.width=16.5, fig.height=4}
+# Figure 5a (left)
+# This produces the performance bars for packages with pragmas, without pragmas, and default for 
+# monoid-subclasses, nonempty-containers, poly, reinterpret-cast, and set-cover.
+title1 <- paste("Best Speedups Per Package By Experiment")
+
+labelvals <- allMins2$RSPEEDPERC
+labelvals_str <- c()
+for (lv in labelvals) {
+  ls <- paste(toString(round(lv,0)),"%",sep="")
+  labelvals_str <- c(labelvals_str, ls)
+}
+allMins2$LABELS <- labelvals_str
+modR2labs <- allMins2$NAME
+modR2labs <- str_replace(modR2labs, "-", "-\n")
+
+toppaneR2 <- ggplot(mapping=aes(x=allMins2$NAME, y=newbars2, fill=allMins2$BATCH)) +
+  ylim(0,4) +
+  geom_bar(data=data.frame(x=1:nrow(allMins2),
+                           y=(newbars2), fill=(allMins2$BATCH)),
+            stat='identity', position=position_dodge()) +
+  geom_text(data=allMins2,
+            aes(y=newbarsPOS, label=allMins2$LABELS, vjust="inward"), vjust=-0.2, position=position_dodge(width=.9), size=10) +
+            theme_classic() + ggtitle(title1) + 
+            scale_y_continuous(breaks=c(0,.1,.2,.3,.4), labels=c("1.0", "1.1", "1.2", "1.3","1.4+"), limits=c(0, 0.5)) +  #seq(1,4,by=1)) +
+            ylab(panetitle) +
+            theme(axis.title.x=element_blank(),
+                  legend.text=element_text(size=24),
+                  title=element_blank(),
+                  legend.position="top",
+                  text=element_text(size=36),
+                  axis.title.y=element_text(size=24)) +
+            guides(fill=guide_legend(title="")) +
+            scale_x_discrete(labels=modR2labs) +
+            scale_fill_manual(values=cbbPalette, labels=c("Default with pragmas", "Search without pragmas", "Search with pragmas"))
+toppaneR2file <- getPath(imagedir, "toppaneR2.png")
+ggsave(toppaneR2file, width=16.5, height=4.5)
+toppaneR2
+```
+
+```{r}
+npGeomBest <- max(allNP$CONFIG_GM_SPEEDUP)
+npGeomBest
+```
+Single best configuration for randomizations, NO pragmas
+```{r}
+single_best_df <- allNP[allNP$CONFIG_GM_SPEEDUP==npGeomBest,]
+single_best_df
+```
+
+
+```{r}
+pGeomBest <- max(allRP$CONFIG_GM_SPEEDUP)
+pGeomBest
+```
+Single best configuration for randomizations with pragmas
+
+
+```{r}
+gmDP <- (gmMean(allDPmins$RSpeedup)-1)*100
+gmDP
+```
+Geom mean speedup of packages: with pragmas versus without pragmas.
+
+
+
+```{r}
+gmNP <- (gmMean(allNPmins$RSpeedup)-1)*100
+gmNP
+```
+Geom mean speedup of packages: with no pragmas and thresholds randomized. (I.e., Best case flags for all packages, no pragmas)
+
+
+```{r}
+gmRP <- (gmMean(allRPmins$RSpeedup)-1)*100
+gmRP
+```
+Geom mean speedup of packages: with pragmas and thresholds randomized.
+14.22
+
+```{r}
+gmGrand <- (gmMean(reducedMins$RSpeedup)-1)*100
+gmGrand
+```
+Geom mean speedup of packages: best cases from all data sets.
+14.72
+
+```{r}
+# Figure 6
+gms <- data.frame(Experiment=c("Default With vs.\nWithout Pragmas",
+                               "Search Without Pragmas",
+                               "Search With Pragmas",
+                               "Best Configuration:\nNo Pragmas",
+                               "Best Configuration:\nWith Pragmas",
+                               "Best Case Over\nAll Experiments"),
+                  Values=c(gmDP, gmNP, gmRP, npGeomBest, pGeomBest, gmGrand))
+
+ggplot(gms, aes(x=reorder(gms$Experiment, gms$Values), y=gms$Values)) + geom_bar(stat="identity") +
+  theme(axis.text.x=element_text(angle=50, hjust=1), text=element_text(size=16)) +
+  ggtitle("Geometric Mean Speedups of All Experiments") +
+  geom_text(data=data.frame(y=gms$Values),
+            aes(label=paste(round(gms$Values,0),"%")),
+            vjust=-0.2) +
+  ylim(0, max(gms$Values + 2)) +
+  ylab("Speedup") +
+  xlab("Experiment")
+```
+
+```{r}
+allGMfile <- getPath(imagedir, "allGMmeans.png")
+ggsave(allGMfile, width=6.2, height=4,  plot=last_plot())
+```
+
+
+```{r}
+# A DF containing threshold names and defaults
+threshold_info <- data.frame(matrix(ncol=0, nrow=12))
+threshold_flags <- names(allDP[4:15])
+threshold_defaults <- list(10, # FI
+                       10, # AA
+                       10, # NTA
+                       40, # DAC
+                       40, # RAC
+                       40, # RC
+                       40, # AC
+                       60, # FFD
+                       30, # FDD
+                       20, # CB
+                       10, # CA
+                       20  # BA
+                       )
+threshold_names <- list("funcitself",
+                        "actarg",
+                        "nontrivarg",
+                        "discargctxt",
+                        "ruleargctxt",
+                        "rhsctxt",
+                        "arbctxt",
+                        "funfoldingfun",
+                        "funfoldingdict",
+                        "cosbase",
+                        "cosargs",
+                        "bigalt")
+threshold_info$FLAG <- threshold_flags
+threshold_info$DEFAULT <- threshold_defaults
+threshold_info$NAME <- threshold_names
+```
+
+
+```{r}
+# Figure 12 (bottom)
+best_config_np <- allNP[allNP$CONFIG_GM_SPEEDUP==npGeomBest,]
+# Best single configuration, bar graph of just speedups
+best_config_np$TEXT_PLACE <- ifelse(best_config_np$RSpeedup >= 1, best_config_np$RSpeedup, 1)
+title <- paste("Best-Performing Single Configuration",
+               "Without Pragmas:\nPercent Speedup per Package. Geometric Mean Speedup:", round(best_config_np$CONFIG_GM_SPEEDUP[1],0),"%")
+
+RSpos <- best_config_np$RSpeedup-1
+RSpos <- ifelse(RSpos < 0, 0, RSpos)
+
+best_config_np$NAME <- getShortNameVec(best_config_np$PROJECT)
+
+ggplot(mapping=aes(x=best_config_np$NAME, y)) +
+  geom_bar(data=data.frame(x=1:nrow(best_config_np),
+                           y=(best_config_np$RSpeedup-1)),
+           stat='identity', fill='darkgrey') +
+  geom_text(data=data.frame(x=(seq(1, nrow(default_mins))),
+                            y=RSpos),
+            size=6,
+            aes(label=paste(round(best_config_np$RSPEEDPERC,0),"%",sep="")),
+            vjust=-0.2) +
+            theme_classic() + 
+            ggtitle(title) + 
+            xlab("Packages") + 
+            ylab("Speedup") +
+            theme(axis.text.x=element_text(angle=20, hjust=1, size=12),
+                  axis.text.y=element_text(size=14),
+                  axis.title.y=element_text(size=16),
+                  title=element_text(size=11),
+                  axis.title.x=element_text(size=16)) +
+            scale_y_continuous(breaks=seq(0,0.3,.05), labels=seq(1,1.3,.05), limits=c(-0.01,0.25))
+```
+
+
+
+```{r}
+bestconfigNPfile <- getPath(imagedir, "bestconfig_speedups.png")
+ggsave(bestconfigNPfile, width=6.2, height=3.75,  plot=last_plot())
+```
+
+```{r}
+# Get the top 3 projects with the fastest speedups
+fastest3_projects <- allNPmins[order(-allNPmins$RSpeedup),][1:3,]
+# Print their names
+fastest3_projects$PROJECT
+```
+
+```{r, fig.width=9.3, fig.height=6.3}
+# Figure 9a
+# The palette with grey:
+f3p <- fastest3_projects[4:15]
+f3p$PROJECT <- fastest3_projects$PROJECT
+f3p$RSpeedup <- fastest3_projects$RSpeedup
+f3p$RPERC <- round(fastest3_projects$RSPEEDPERC,0)
+names(f3p) <- c(threshold_names, "PROJECT", "RSpeedup", "RPERC")
+
+FI = 10
+AA = 10
+NTA = 10
+DAC = 40
+RAC = 40
+RC = 40
+AC = 40
+FFD = 60
+FDD = 30
+CB = 20
+CA = 10
+BA = 20
+
+f3p$funcitself <- ((f3p$funcitself - FI) / FI) * 100
+f3p$actarg <- ((f3p$actarg - AA) / AA) * 100
+f3p$nontrivarg <- ((f3p$nontrivarg - NTA) / NTA) * 100
+f3p$discargctxt <- ((f3p$discargctxt - DAC) / DAC) * 100
+f3p$ruleargctxt <- ((f3p$ruleargctxt - RAC) / RAC) * 100
+f3p$rhsctxt <- ((f3p$rhsctxt - RC) / RC) * 100
+f3p$arbctxt <- ((f3p$arbctxt - AC) / AC) * 100
+f3p$funfoldingfun <- ((f3p$funfoldingfun - FFD) / FFD) * 100
+f3p$funfoldingdict <- ((f3p$funfoldingdict - FDD) / FDD) * 100
+f3p$cosbase <- ((f3p$cosbase - CB) / CB) * 100
+f3p$cosargs <- ((f3p$cosargs - CA) / CA) * 100
+f3p$bigalt <- ((f3p$bigalt - BA) / BA) * 100
+
+names(f3p) <- c(threshold_names, "PROJECT", "RSpeedup", "RPERC")
+fastest3_melted <- melt(f3p, id=c("PROJECT", "RSpeedup", "RPERC"))
+cbPalette <- c("#000000", "#686868", "#A8A8A8")
+
+ggplot(data=fastest3_melted, aes(x=variable, y=value, fill=paste(PROJECT, ":  ", factor(RPERC), "%", sep=""))) + geom_bar(stat="identity",position=position_dodge()) +
+    ggtitle(paste(f3p$PROJECT[1], f3p$PROJECT[2], f3p$PROJECT[3], ":\nBest Configurations, Differences from Default Values", sep=" ")) +
+  xlab("Flag name") + ylab("Flag difference\nfrom default") + labs(fill="Project: Speedup") + 
+  theme(legend.text=element_text(size=20),
+        legend.position="bottom",
+        legend.direction="vertical",
+        plot.title=element_text(size=22),
+        text=element_text(size=20),
+        axis.text.x=element_text(angle=45, hjust=1, size=20),
+        axis.text.y=element_text(size=20)) +
+  scale_fill_manual(values=cbPalette) + geom_vline(xintercept=c(1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5), color="darkgrey")
+```
+```{r}
+barsfile <- getPath(imagedir, "bars.png")
+ggsave(barsfile, width=9.25, height=6.25)
+```
+
+
+```{r, fig.width=6.2, fig.height=2.5}
+# Figure 7b
+ggplot(allRP, aes(allRP$RSpeedup)) +               
+  geom_histogram(bins = 100) +
+  ggtitle(paste("Histogram of Individual\nPackage Speedups\nAcross All", nrpc, "Configurations\n(with pragmas)")) +
+  xlab("Speedup\n(per package and configuration)") +
+  ylab("Count") +
+  ylim(0, 1000) +
+  theme(text=element_text(size=14),
+        plot.title=element_text(size=14))
+```
+```{r out.width='100%'}
+histPfile <- getPath(imagedir, "hist_P_speedups.png")
+ggsave(histPfile, width=4, height=4)
+```
+
+```{r}
+above0RP <- ifelse(allRP$RSpeedup >= 1, 1, 0) # 1 for each Speedup >= 1.0, 0 otherwise
+posRP <- sum(above0RP) # Sum positive speedups
+posRP/nrow(allRP)
+```
+Percent of package speedups >= 0 over all random configs with pragmas.
+
+
+
+```{r}
+above0NP <- ifelse(allNP$RSpeedup >= 1, 1, 0) # 1 for each Speedup >= 0, 0 otherwise
+posNP <- sum(above0NP) # Sum positive speedups
+posNP/nrow(allNP)
+```
+Percent of package speedups >= 0 over all random configs with pragmas removed.
+
+
+```{r}
+aNP_no <- allNP[allNP$RSpeedup > 0.2,] # Remove extraordinarily slow outlier
+
+# Figure 7a
+ggplot(aNP_no, aes(aNP_no$RSpeedup)) +               
+  geom_histogram(bins = 100) +
+  ggtitle(paste("Histogram of Individual\nPackage Speedups\nAcross All", nNrpc, "Configurations\n(no pragmas)")) +
+  xlab("Speedup\n(per package and configuration)") +
+  ylab("Count") +
+  ylim(0, 1000) +
+  theme(text=element_text(size=14),
+        plot.title=element_text(size=14))
+```
+
+```{r}
+histNPfile <- getPath(imagedir, "hist_NP_speedups.png")
+ggsave(histNPfile, width=4, height=4)
+```
+
+
+# BEST CONFIGS FOR PROJECTS W/O PRAGMAS
+```{r}
+for (p in project_names) {
+  group <- allNP[allNP$PROJECT==p,]
+  maxp <- max(group$RSPEEDPERC)
+  maxgroup <- group[group$RSPEEDPERC==maxp,]
+  maxU <- maxgroup$UNIQUE_CONFIG
+  uc_group <- allNP[allNP$UNIQUE_CONFIG==maxU,]
+  uc_group$CONFIG <- NULL
+  uc_group$STATUS <- NULL
+  uc_group$BATCH <- NULL
+  over3 <- uc_group[uc_group$RSpeedup >= 1.03,]
+  print(uc_group)
+  print(paste(p, ",  max speedup:", maxp, "%"))
+  print(paste("max config:", maxU, "."))
+  print(paste(over3$PROJECT, ":", over3$RSPEEDPERC, "%"))
+  print("--------")
+}
+```
+
+Notes:
+hw-rankselect, max speedup: 5.8% max config: 132. Speedups for all other projects are terrible.
+metrics: max speedup: 3.01% max config: 5. set-cover 19.41%, reinterpret-cast 3.13%
+nonempty-containers: max speedup: 16.65% max config: 315. hw-rankselect 4.44%, ListLike 6.4%, monoid-subclasses 4.79%, poly 4.15%, set-cover 17.78%
+poly: max speedup: 11.95%. max config: 292. ListLike 6.48%. All others terrible.
+ListLike: max speedup: 9.3%. max config: 242. midi 4.01%, monoid-subclasses 3.34%, poly 4.12%, set-cover 17.48%
+loop: max speedup 0.09%
+midi: max speedup 5.54%, max config: 229. hw 3.23, ListLike 8.33, monoid-subclasses 4.17, nonempty-containers 14.55, poly 7.56, set-cover 18.53
+monoid-subclasses: max speedup 6.74%. max config: 250. nonempty-containers 10.38, poly 8.79, set-cover 16.89
+reinterpret-cast: max speedup 3.35. max config: 134. ListLike 8.09, monoid-subclasses 3.48, nonempty-containers: 4.77
+set-cover: max speedup 19.91%, max config: 124. hw 3.09, poly 9.45
+
+# BEST CONFIGS FOR PROJECTS WITH PRAGMAS
+```{r}
+for (p in project_names) {
+  group <- allRP[allRP$PROJECT==p,]
+  maxp <- max(group$RSPEEDPERC)
+  maxgroup <- group[group$RSPEEDPERC==maxp,]
+  maxU <- maxgroup$UNIQUE_CONFIG
+  uc_group <- allRP[allRP$UNIQUE_CONFIG==maxU,]
+  uc_group$CONFIG <- NULL
+  uc_group$STATUS <- NULL
+  uc_group$BATCH <- NULL
+  over3 <- uc_group[uc_group$RSPEEDPERC >=3,]
+  print(uc_group)
+  print(paste(p, ",  max speedup:", maxp, "%"))
+  print(paste("max config:", maxU, "."))
+  print(paste(over3$PROJECT, ":", over3$RSPEEDPERC, "%"))
+  print("--------")
+}
+```
+
+```{r}
+best_single_p <- allRP[allRP$CONFIG_GM_SPEEDUP==pGeomBest,]
+```
+
+
+```{r}
+# Speedups times of the projects in the 4 combined clusters
+NPh2 <- c(
+  allNP[allNP$PROJECT==hwrankselectSTR & allNP$UNIQUE_CONFIG==315,]$RSpeedup, # hwrankselect 315
+  allNP[allNP$PROJECT==listlikeSTR & allNP$UNIQUE_CONFIG==229,]$RSpeedup, # ListLike 229
+  allNP[allNP$PROJECT==loopSTR & allNP$UNIQUE_CONFIG==229,]$RSpeedup, # loop 229
+  allNP[allNP$PROJECT==metricsSTR & allNP$UNIQUE_CONFIG==5,]$RSpeedup, # metrics 5
+  allNP[allNP$PROJECT==midiSTR & allNP$UNIQUE_CONFIG==229,]$RSpeedup, # midi 229
+  allNP[allNP$PROJECT==monoidSTR & allNP$UNIQUE_CONFIG==315,]$RSpeedup, # monoid 315
+  allNP[allNP$PROJECT==nonemptySTR & allNP$UNIQUE_CONFIG==315,]$RSpeedup, # nonempty 315
+  allNP[allNP$PROJECT==polySTR & allNP$UNIQUE_CONFIG==202,]$RSpeedup, # poly 202
+  allNP[allNP$PROJECT==reinterpretSTR & allNP$UNIQUE_CONFIG==5,]$RSpeedup, # reinterpret 5
+  allNP[allNP$PROJECT==setcoverSTR & allNP$UNIQUE_CONFIG==202,]$RSpeedup # set-cover 202
+)
+```
+
+```{r}
+# Speedups times of the projects in the 4 combined clusters
+Ph2 <- c(
+  allRP[allRP$PROJECT==hwrankselectSTR & allRP$UNIQUE_CONFIG==237,]$RSpeedup, # hwrankselect 237
+  allRP[allRP$PROJECT==listlikeSTR & allRP$UNIQUE_CONFIG==23,]$RSpeedup, # ListLike 23
+  allRP[allRP$PROJECT==loopSTR & allRP$UNIQUE_CONFIG==136,]$RSpeedup, # loop 136
+  allRP[allRP$PROJECT==metricsSTR & allRP$UNIQUE_CONFIG==237,]$RSpeedup, # metrics 237
+  allRP[allRP$PROJECT==midiSTR & allRP$UNIQUE_CONFIG==278,]$RSpeedup, # midi 278
+  allRP[allRP$PROJECT==monoidSTR & allRP$UNIQUE_CONFIG==136,]$RSpeedup, # monoid 136
+  allRP[allRP$PROJECT==nonemptySTR & allRP$UNIQUE_CONFIG==136,]$RSpeedup, # nonempty 136
+  allRP[allRP$PROJECT==polySTR & allRP$UNIQUE_CONFIG==278,]$RSpeedup, # poly 278
+  allRP[allRP$PROJECT==reinterpretSTR & allRP$UNIQUE_CONFIG==23,]$RSpeedup, # reinterpret 23
+  allRP[allRP$PROJECT==setcoverSTR & allRP$UNIQUE_CONFIG==136,]$RSpeedup # set-cover 136
+)
+```
+
+```{r}
+gmClustersNP <- (gmMean(NPh2)-1)*100
+gmClustersNP
+```
+
+
+```{r}
+Ph2Perc <- (Ph2-1)*100
+Ph2POS <- c()
+Ph2PercSTR <- c()
+for(item in Ph2Perc) {
+  Ph2POS <- c(Ph2POS, ifelse(item >= 100, 40, item)) # Limit the bars' height
+  Ph2PercSTR <- c(Ph2PercSTR, paste(round(item, 0),"%", sep="") )
+}
+shortnames <- getShortNameVec(pnmod)
+
+clusterP <- data.frame(PACKAGE=shortnames, SPEEDUP=Ph2POS, CONFIG=as.factor(c(237, 23, 136, 237, 278, 136, 136, 278, 23, 136)), LABELS=Ph2PercSTR)
+```
+
+```{r}
+# Figure 13
+gmClusters <- (gmMean(Ph2)-1)*100
+
+ggplot(clusterP, aes(x=clusterP$PACKAGE, y=clusterP$SPEEDUP, fill=clusterP$CONFIG)) +
+  geom_bar(stat="identity") +
+  scale_fill_manual(values=cbbPalette) +
+  ggtitle(paste("Clustered speedups per package, 4 configurations\nWith pragmas. Geometric mean speedup: ", round(gmClusters,0),"%", sep="")) +
+  theme(
+    text=element_text(size=18),
+    axis.text.x=element_text(angle=65, hjust=1),
+    plot.title=element_text(size=14)
+    ) +
+  geom_text(data=clusterP,
+            aes(label=Ph2PercSTR, y=Ph2POS+3)) +
+  scale_y_continuous(breaks=seq(0,40,10), labels=seq(1,1.4,.1), limits=c(0,45)) +
+  guides(fill=guide_legend(title="Config.")) +
+  ylab("Speedup") +
+  xlab("Package")
+```
+
+```{r}
+clusterPfile <- getPath(imagedir, "clusterP.png")
+ggsave(clusterPfile, width=6.2, height=4)
+```
+
+
+```{r}
+for (p in pnmod) {
+  group <- allRP[allRP$PROJECT==p,]
+  maxp <- max(group$SPEEDUP)
+  maxgroup <- group[group$SPEEDUP==maxp,]
+  maxU <- maxgroup$UNIQUE_CONFIG
+  uc_group <- allRP[allRP$UNIQUE_CONFIG==maxU,]
+  uc_group$CONFIG <- NULL
+  uc_group$STATUS <- NULL
+  uc_group$BATCH <- NULL
+  over3 <- uc_group[uc_group$SPEEDUP >=3,]
+  print(uc_group)
+  print(paste(p, ",  max speedup:", maxp, "%"))
+  print(paste("max config:", maxU, "."))
+  print(paste(over3$PROJECT, ":", over3$SPEEDUP, "%"))
+  print("--------")
+}
+```
+
+```{r}
+# Just manually checking that RTR returns the same best config as Speedup.
+minTimePoly <- min(allRP[allRP$PROJECT==poly,]$RTR)
+minTimePolyC <- allRP[allRP$PROJECT==poly & allRP$RTR==minTimePoly,]
+minTimePolyC
+```
+
+```{r}
+# 229 : midi, ListLike, loop
+# 202 : poly, set-cover 
+# 315 : hw, nonempty, monoid
+# 5 : metrics, reinterpret-cast
+h6 <- c(
+   4.44, # hw 315
+   8.33, # ListLike
+   -0.57, # loop
+  3.01, # metrics  5
+   5.54, # midi
+   4.79, # monoid 315
+   16.65, # nonempty # 315
+   11.54, # poly  202
+   3.13, # reinterpret 5
+   19.67 # set-cover 202
+)
+gmh6 <- gmMean(h6)
+gmh6
+```
+
+```{r}
+clusterNP <- data.frame(PACKAGE=pnmod, SPEEDUP=h6, CONFIG=as.factor(c(315, 229, 229, 5, 229, 315, 315, 202, 5, 202)))
+clNP_pos <- ifelse(clusterNP$SPEEDUP > 0, clusterNP$SPEEDUP, 2)
+ggplot(clusterNP, aes(clusterNP$PACKAGE, clusterNP$SPEEDUP, fill=clusterNP$CONFIG)) + geom_bar(stat="identity")  +
+  scale_fill_manual(values=cbbPalette) +
+  ggtitle(paste("Clustered speedups per package, 4 configurations\nNo pragmas. Geometric mean speedup: ", round(gmh6, 0), " %", sep="")) +
+  theme(text=element_text(size=13), axis.text.x=element_text(angle=60, hjust=1)) +
+  geom_text(data=data.frame(x=clusterNP$PACKAGE,
+                            y=clNP_pos),
+            aes(label=paste(clusterNP$SPEEDUP,"%")),
+            vjust=-0.2) +
+  ylab("Speedup") +
+  xlab("Package") +
+  guides(fill=guide_legend(title="Config.")) +
+  scale_y_continuous(breaks=c(0, 10, 20, 30, 40), limits=c(min(clusterNP$SPEEDUP), 50))
+
+```
+```{r}
+clusterNPfile <- getPath(imagedir, "clusterNP.png")
+#ggsave(clusterNPfile, width=6.2, height=4)
+```
+
+
+```{r}
+bestWithAllOthersRP <- reducedMins[FALSE,]
+bestWithAllOthersNP <- reducedMins[FALSE,]
+bestWithAllOthersRP$BEST <- NULL
+bestWithAllOthersNP$BEST <- NULL
+
+# Get every best case. For each best case, get all other project's times.
+for (r in 1:nrow(allRPmins)) {
+  row_ <- allRPmins[r,]
+  uc <- row_$UNIQUE_CONFIG
+  rows_ <- allRP[allRP$UNIQUE_CONFIG==uc,]
+  rows_$BEST <- -1
+  rows_$BEST <- ifelse(rows_$PROJECT == row_$PROJECT, 1, 0)
+  bestWithAllOthersRP <- rbind(bestWithAllOthersRP, rows_)
+}
+
+# Get every best case. For each best case, get all other project's times.
+for (r in 1:nrow(allNPmins)) {
+  row_ <- allNPmins[r,]
+  uc <- row_$UNIQUE_CONFIG
+  rows_ <- allRP[allRP$UNIQUE_CONFIG==uc,]
+  rows_$BEST <- -1
+  rows_$BEST <- ifelse(rows_$PROJECT == row_$PROJECT, 1, 0)
+  bestWithAllOthersNP <- rbind(bestWithAllOthersNP, rows_)
+}
+
+best10withothersNP <- getPath(tabledir, "best10withothersNP.txt")
+best10withothersRP  <- getPath(tabledir, "best10withothersRP.txt")
+write.table(bestWithAllOthersNP, file=best10withothersNP, quote=F, sep=",")
+write.table(bestWithAllOthersRP, file=best10withothersRP, quote=F, sep=",")
+```
+
+
+```{r fig.width=16, fig.height=3}
+# Figure 10
+histsTop1file <- getPath(imagedir, "histograms_random.png")
+png(file=histsTop1file, width=1000, height=350)
+
+# This is to tile the histograms
+par(mfrow=c(2,6))
+
+# Print histograms for each of the threshold values
+for (r in 1:nrow(threshold_info)) {
+   row <- threshold_info[r,]
+   hist(perc1[[row$FLAG]],
+        xlab="",
+        main=paste(row$NAME,"\nDefault", row$DEFAULT),
+        cex.lab=2,
+        cex.axis=2,
+        cex.main=2,
+        breaks=ceiling(nrow(perc1))^(1/1.1)) # adjust bins
+}
+dev.off()
+```
+
+```{r out.width='100%'}
+knitr::include_graphics(histsTop1file)
+```
+
+
+```{r}
+# Figure 9b
+top1NP <- allNPmins[4:15]
+colnames(top1NP) <- threshold_names
+top1NPmelt <- melt(top1NP)
+top1NPmelt$DEFAULT <- 0
+top1NPmelt[top1NPmelt$variable=="funcitself",]$DEFAULT <- 2
+top1NPmelt[top1NPmelt$variable=="actarg",]$DEFAULT <- 2
+top1NPmelt[top1NPmelt$variable=="nontrivarg",]$DEFAULT <- 2
+top1NPmelt[top1NPmelt$variable=="discargctxt",]$DEFAULT <- 8
+top1NPmelt[top1NPmelt$variable=="ruleargctxt",]$DEFAULT <- 8
+top1NPmelt[top1NPmelt$variable=="rhsctxt",]$DEFAULT <- 8
+top1NPmelt[top1NPmelt$variable=="arbctxt",]$DEFAULT <- 8
+top1NPmelt[top1NPmelt$variable=="funfoldingfun",]$DEFAULT <- 12
+top1NPmelt[top1NPmelt$variable=="funfoldingdict",]$DEFAULT <- 6
+top1NPmelt[top1NPmelt$variable=="cosbase",]$DEFAULT <- 4
+top1NPmelt[top1NPmelt$variable=="cosargs",]$DEFAULT <- 2
+top1NPmelt[top1NPmelt$variable=="bigalt",]$DEFAULT <- 4
+ggplot(top1NPmelt, aes(x=top1NPmelt$variable, y=top1NPmelt$DEFAULT)) + geom_col( fill="white", alpha=.6) +
+  geom_point(top1NPmelt, mapping=aes(top1NPmelt$variable, top1NPmelt$value)) +
+  theme(axis.text.x=element_text(angle=45, hjust=1),
+        title=element_text(size=17),
+        text=element_text(size=19)) +
+  xlab("Parameter") +
+  ylab("Value") +
+  ggtitle("Parameter values for each package's\nfastest configuration: Pragmas removed") +
+  geom_point(aes(x=1,y=10), shape=23, fill="yellow", color="darkblue", size=3) + # FI
+  geom_point(aes(x=2,y=10), shape=23, fill="yellow", color="darkblue", size=3) + # AA
+  geom_point(aes(x=3,y=10), shape=23, fill="yellow", color="darkblue", size=3) + # NTA
+  geom_point(aes(x=4,y=40), shape=23, fill="yellow", color="darkblue", size=3) + # DAC
+  geom_point(aes(x=5,y=40), shape=23, fill="yellow", color="darkblue", size=3) + # RAC
+  geom_point(aes(x=6,y=40), shape=23, fill="yellow", color="darkblue", size=3) + # RC
+  geom_point(aes(x=7,y=40), shape=23, fill="yellow", color="darkblue", size=3) + # AC
+  geom_point(aes(x=8,y=60), shape=23, fill="yellow", color="darkblue", size=3) + # FFD
+  geom_point(aes(x=9,y=30), shape=23, fill="yellow", color="darkblue", size=3) + # FDD
+  geom_point(aes(x=10,y=20), shape=23, fill="yellow", color="darkblue", size=3) + # CB
+  geom_point(aes(x=11,y=10), shape=23, fill="yellow", color="darkblue", size=3) + # CA
+  geom_point(aes(x=12,y=20), shape=23, fill="yellow", color="darkblue", size=3)  # BA
+```
+
+```{r}
+ggsave("images/bestconfigsflags.png", width=6.2, height=4)
+```
+
+
+```{r}
+# For each project, get the list of other projects that had a significant improvement with that
+# project's best configuration. Put this into a data frame.
+matches <- data.frame(PROJECT=character(), IMPROVED_P=character(), IMPROVED_SP=numeric())
+for (i in 1:nrow(allNPmins)) {
+  r <- allNPmins[i,]
+  p <- r$PROJECT
+  c <- r$CONFIG
+  d <- r$DATE
+  select <- allNP[allNP$CONFIG==c & allNP$DATE==d,]
+  select[3:20] <- NULL
+  select$BEST <- p
+  improved <- select[select$RSPEEDPERC >= 3,]
+  improveds <- improved$RSPEEDPERC
+  improvedp <- improved$PROJECT
+  matches <- rbind(matches, data.frame(PROJECT=rep(p, length(improveds)), IMPROVED_P=improvedp, IMPROVED_SP=improveds))
+}
+```
+
+```{r}
+# Select data within 1% of optimum for each project
+
+# Empty DF to contain top N values for each project
+top_speedups <- data.frame(matrix(ncol = length(col_names3), nrow = 0))
+for (p in project_names) {
+  if (p %in% c("nonempty-containers-0.3.3.0", "poly-0.3.3.0", "midi-0.2.2.2")) {
+    p_diff <- 2.5
+  } else {
+    p_diff <- 1
+  }
+  block <- allNP[allNP$PROJECT==p,]
+  max_p <- allNPmins[allNPmins$PROJECT==p,]$RSPEEDPERC
+  lowerbound <- max_p - p_diff
+  top_speedups <- rbind(top_speedups, block[block$RSPEEDPERC >= lowerbound,])
+}
+```
+
+
+```{r, fig.width=6.2, fig.height=2.25}
+# Figure 12 (top)
+# Best single configuration, bar graph of just speedups
+bestP_mod <- best_single_p
+bestP_mod$MOD_SPEEDUP <- best_single_p$RSpeedup
+bestP_mod[bestP_mod$PROJECT==poly,]$MOD_SPEEDUP <- 1.4
+bestP_mod$TEXTLAB <- paste(round(bestP_mod$RSPEEDPERC,0),"%",sep="")
+
+bestPpos <- round(bestP_mod$RSpeedup-1,3)
+bestPpos <- ifelse(bestPpos >= .4, .4, bestPpos)
+
+bestPposText <- ifelse(bestPpos >= .4, .36, bestPpos)
+
+title <- paste("Best-Performing Single Configuration With Pragmas\nPercent Speedup Per Package. Geometric Mean:", round(bestP_mod$CONFIG_GM_SPEEDUP[1],0),"%")
+ggplot(bestP_mod, aes(x=bestP_mod$PROJECT, y=bestPpos)) + geom_bar(stat="identity", fill="darkgrey") +
+  geom_text(data=data.frame(x=(seq(1, nrow(bestP_mod))),
+                            y=bestPposText),
+            size=6,
+            aes(label=bestP_mod$TEXTLAB,y=bestPpos),
+            vjust=-0.2) +
+            theme_classic() + 
+            ggtitle(title) + 
+            xlab("Packages") + 
+            ylab("Speedup") +
+            theme(axis.title.x=element_blank(),
+              axis.text.x=element_blank(),
+              axis.text.y=element_text(size=14),
+              title=element_text(size=11),
+              axis.title.y=element_text(size=16)) +
+            scale_y_continuous(breaks=seq(0,0.4,.1), labels=seq(1,1.4,.1), limits=c(0,0.45))
+```
+
+```{r}
+Pbestfile <- getPath(imagedir, "Psinglebest.png")
+ggsave(Pbestfile, width=6.2, height=2.25)
+```
+
+
+```{r}
+# Figure 8
+evolve_df <- data.frame(x=1:length(gm_evolve), NP=gm_evolve, RP=gm_evolveRP)
+ggplot(evolve_df, aes(x=x, y=RP)) + geom_line() +
+  geom_line(evolve_df, mapping=aes(x=x, y=NP), linetype="dashed", size=1.2) +
+  ggtitle(paste("Maximum configuration total speedup\nobserved over", nNrpc, "random configurations")) +
+  ylab("Maximum speedup\nin execution time") +
+  xlab("Configurations (sequential)") +
+  theme(
+    text=element_text(size=15)
+  )
+```
+#Solid: Pragmas left in code.
+#Dashed: Pragmas removed from code.
+
+```{r}
+evolfile <- getPath(imagedir, "evolution.png")
+ggsave(evolfile, width=6.2, height=2.5)
+```
+
+```{r}
+npClustR <- c(0.9445706, # midi
+              0.9167282, # ListLike
+              0.8805026, # poly
+              0.9555584, # hw
+              0.8335049, # nonempty
+              0.9521151, # monoid
+              0.9698576, # metrics
+              0.9686776, # reinterpret
+              0.8059476 # set-cover
+              )
+clustRRTR <- gmMean(npClustR)
+```
+
+```{r}
+(1-clustRRTR)*100
+```

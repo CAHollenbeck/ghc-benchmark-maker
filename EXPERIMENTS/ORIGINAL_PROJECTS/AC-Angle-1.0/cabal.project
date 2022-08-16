@@ -1,0 +1,3 @@
+packages: . ../../../MODIFIED_DEPENDENCIES/quickcheck_modified/QuickCheck.cabal 
+
+tests: True
